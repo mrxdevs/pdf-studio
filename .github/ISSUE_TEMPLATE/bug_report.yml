@@ -1,0 +1,57 @@
+name: Bug report
+description: Something doesn't work the way it should
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Please **don't attach a PDF with private information**. Remove anything sensitive first, or describe the file instead.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+      placeholder: I tapped "Edit text" on the first line, typed a new date and pressed Download. The downloaded PDF still shows the old date.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      value: |
+        1. Open ...
+        2. Choose the ... tool
+        3. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: device
+    attributes:
+      label: Device
+      options:
+        - Android phone
+        - iPhone
+        - iPad / tablet
+        - Windows
+        - macOS
+        - Linux
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and version
+      placeholder: Chrome 130, Safari 18, Firefox 132 ...
+    validations:
+      required: true
+  - type: textarea
+    id: file
+    attributes:
+      label: About the PDF
+      description: Where did it come from (scanned, exported from Word, a bank statement, a form)? Roughly how many pages? Is it password protected? A safe sample file helps a lot.
+  - type: textarea
+    id: extra
+    attributes:
+      label: Screenshots or console errors
+      description: Browser console errors (F12 → Console) are very helpful.
