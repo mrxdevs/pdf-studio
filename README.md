@@ -48,7 +48,7 @@ Free and open source. No sign-up, no upload, no watermark.
 - [🗺️ Roadmap](#️-roadmap)
 - [🤝 Contributing](#-contributing)
 - [📄 License](#-license)
-- [👨‍💻 Author](#-author)
+- [👨‍💻 Author](#‍-author)
 
 ---
 
