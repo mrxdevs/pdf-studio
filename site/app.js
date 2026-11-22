@@ -101,7 +101,7 @@ const WINANSI_EXTRA = '€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜
 function winAnsiOK(t) {
   for (const ch of t) {
     const c = ch.codePointAt(0);
-    if (c === 10 || (c >= 32 && c <= 126) || (c >= 160 && c <= 255) || WINANSI_EXTRA.includes(ch)) continue;
+    if (c === 9 || c === 10 || c === 13 || (c >= 32 && c <= 126) || (c >= 160 && c <= 255) || WINANSI_EXTRA.includes(ch)) continue;
     return false;
   }
   return true;
@@ -234,6 +234,7 @@ function restore(s) {
   const pagesChanged = JSON.stringify(S.pages) !== JSON.stringify(st.pages);
   S.pages = st.pages; S.objects = st.objects; S.sel = null; S.editing = null;
   if (pagesChanged) { buildPages(); buildThumbs(); } else renderAllObjects();
+  if (S.tool === 'edittext') for (const [id, pe] of pageEls) { pe.tbuilt = false; buildTextItems(id); } // undo/redo may uncover or cover text lines
   renderProps(); updateUndo();
 }
 function undo() { finishEdit(); if (H.idx <= 0) return; H.idx--; restore(H.stack[H.idx]); }
@@ -258,15 +259,15 @@ async function openFile(file) {
   finally { busy(false); }
 }
 async function openBytes(bytes, name) {
-  if (S.pdf) { try { await S.pdf.destroy(); } catch (e) {} }
-  textCache.clear();
   await workerReady;
   const task = pdfjsLib.getDocument({ data: bytes.slice(), ...DOC_OPTS() });
   task.onPassword = (cb, reason) => {
     const p = prompt(reason === 2 ? 'Wrong password. Try again:' : 'This PDF is password protected. Enter its password:');
     if (p === null) task.destroy(); else cb(p);
   };
-  const pdf = await task.promise;
+  const pdf = await task.promise; // if this throws (bad file, cancelled password), the current document stays usable
+  const oldPdf = S.pdf;
+  textCache.clear();
   S.pdf = pdf; S.base = bytes; S.fileName = name || 'document.pdf';
   S.pages = []; S.objects = {}; S.images = {}; S.sel = null; S.editing = null;
   for (let i = 0; i < pdf.numPages; i++) {
@@ -282,6 +283,7 @@ async function openBytes(bytes, name) {
   S.zoom = fitZoom();
   buildPages(); buildThumbs(); setTool('select', true); renderProps();
   $('#viewer').scrollTop = 0;
+  if (oldPdf) { try { await oldPdf.destroy(); } catch (e) {} }
   toast(`${pdf.numPages} page${pdf.numPages > 1 ? 's' : ''} ready. Pick a tool to start editing.`);
 }
 
@@ -751,8 +753,9 @@ async function buildTextItems(pid) {
   pe.tlayer.innerHTML = '';
   const T = vpTransform(p.view, p.rot);
   pe.items = [];
+  const replaced = new Set((S.objects[pid] || []).filter(x => x.fromItem != null).map(x => x.fromItem)); // already covered by an edit
   tc.items.forEach((it, i) => {
-    if (!it.str || !it.str.trim()) return;
+    if (!it.str || !it.str.trim() || replaced.has(i)) return;
     const tx = pdfjsLib.Util.transform(T, it.transform);
     if (Math.abs(tx[1]) > 0.01 || Math.abs(tx[2]) > 0.01 || tx[0] <= 0) return; // horizontal text only
     const fh = Math.hypot(tx[2], tx[3]) || Math.abs(tx[3]); if (fh < 2) return;
@@ -812,7 +815,7 @@ async function replaceTextItem(pid, i) {
   if (faces[key + '|' + v] && faces[key + '|' + v].status !== 'loaded') await ensureFace(key, v);
   o.x = it.x - PAD;
   o.y = it.base - PAD - baselineOffset(o, key, v);
-  addObj(pid, { type: 'rect', role: 'whiteout', ...cover, fill: col.bg, stroke: null, strokeW: 0, opacity: 1 }, { sel: false });
+  addObj(pid, { type: 'rect', role: 'whiteout', ...cover, fill: col.bg, stroke: null, strokeW: 0, opacity: 1, fromItem: i }, { sel: false });
   addObj(pid, o, { sel: false });
   pe.tlayer.querySelector(`.titem[data-i="${i}"]`)?.remove();
   commit();

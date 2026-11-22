@@ -118,3 +118,31 @@ test('open-source files are present', () => {
   assert.match(fs.readFileSync(path.join(root, 'LICENSE'), 'utf8'), /MIT License\n\nCopyright \(c\) 2026 Amjad Ali/);
   assert.ok(fs.existsSync(path.join(site, '404.html')));
 });
+
+/* regression tests for editor bugs (extract functions from app.js and run them; the editor itself needs a browser) */
+function extractFn(name) {
+  const m = js.match(new RegExp(`function ${name}\\([\\s\\S]*?\\n\\}\\n`));
+  assert.ok(m, 'cannot find ' + name);
+  return m[0];
+}
+test('winAnsiOK: tabs and CR are normalised by wrapText, so they must not force the Lato fallback', () => {
+  const extra = js.match(/const WINANSI_EXTRA = '[^']*';/)[0];
+  const winAnsiOK = new Function(`${extra}\n${extractFn('winAnsiOK')}\nreturn winAnsiOK;`)();
+  assert.ok(winAnsiOK('Qty\tPrice'));
+  assert.ok(winAnsiOK('line one\r\nline two'));
+  assert.ok(winAnsiOK('Caf\u00e9 \u20ac5'));
+  assert.ok(!winAnsiOK('\u20b9500'));      // rupee still needs the Lato fallback
+  assert.ok(!winAnsiOK('\u0939\u093f\u0928\u094d\u0926\u0940'));
+});
+test('openBytes keeps the current document until the new one has opened', () => {
+  const fn = extractFn('openBytes').replace(/^async function openBytes[\s\S]*?\n/, '');
+  const load = fn.indexOf('await task.promise');
+  const destroy = fn.indexOf('.destroy()', load);
+  assert.ok(load > 0 && destroy > load, 'old PDF must only be destroyed after the new one loads');
+  assert.ok(!fn.slice(0, load).includes('S.pdf.destroy'), 'S.pdf.destroy before the new PDF loads breaks the open document if opening fails');
+});
+test('Edit text items covered by an edit stay hidden, and undo/redo rebuild the tappable lines', () => {
+  assert.match(js, /fromItem: i/);
+  assert.match(js, /replaced\.has\(i\)/);
+  assert.match(extractFn('restore'), /S\.tool === 'edittext'[\s\S]*buildTextItems/);
+});
